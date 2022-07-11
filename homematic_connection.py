@@ -13,6 +13,22 @@ HOMEMATIC_MODE_BOOST = 3
 HOMEMATIC_MODE_COMFORT = 4
 HOMEMATIC_MODE_LOWERING = 5
 
+def print_homematic_mode(val):
+    if val == HOMEMATIC_MODE_AUTO:
+        return "AUTO"
+    elif val == HOMEMATIC_MODE_MANU:
+        return "MANU"
+    elif val == HOMEMATIC_MODE_PARTY:
+        return "PARTY"
+    elif val == HOMEMATIC_MODE_BOOST:
+        return "BOOST"
+    elif val == HOMEMATIC_MODE_COMFORT:
+        return "COMFORT"
+    elif val == HOMEMATIC_MODE_LOWERING:
+        return "LOWERING"
+    else:
+        return "None"
+
 OFF_VALUE = 4.5
 
 def get_ip():
@@ -89,13 +105,16 @@ class HMThermostat:
         self._callbacks += [ cb ]
 
     def poll(self):
-        state = self._client.getParamset(self._address, "VALUES")
-        print("[%s] Poll: %s" % (self._address, state))
+        try:
+            state = self._client.getParamset(self._address, "VALUES")
+            print("[%s] Poll: %s" % (self._address, state))
+            self._mode = state['CONTROL_MODE']
+            self._target_temp = state['SET_TEMPERATURE']
+            self._current_temp = state['ACTUAL_TEMPERATURE']
+            self.update(None, None, None)
 
-        self._mode = state['CONTROL_MODE']
-        self._target_temp = state['SET_TEMPERATURE']
-        self._current_temp = state['ACTUAL_TEMPERATURE']
-        self.update(None, None, None)
+        except Exception as e:
+            print(e)
 
     def update(self, mode, target_temp, current_temp):
         if mode is not None:
@@ -105,14 +124,20 @@ class HMThermostat:
         if current_temp is not None:
             self._current_temp = current_temp
 
-        print("[%s] Update: %d %f %f" % (self._address, self._mode, self._target_temp, self._current_temp))
+        print("[%s] Update: %s %f %f" % (self._address, print_homematic_mode(self._mode), self._target_temp, self._current_temp))
         for c in self._callbacks:
             c()
 
     def set(self, mode, target_temp):
-        print("[%s] Push: %d %f" % (self._address, mode, target_temp))
-        self._client.setValue(self._address, "SET_TEMPERATURE", target_temp)
-        self._client.setValue(self._address, "CONTROL_MODE", mode)
+        try:
+            print("[%s] Push: %d %f" % (self._address, print_homematic_mode(mode), target_temp))
+            self._client.setValue(self._address, "SET_TEMPERATURE", target_temp)
+            time.sleep(.5)
+            self._client.setValue(self._address, "CONTROL_MODE", mode)
+        except Exception as e:
+            print(e)
+
+        time.sleep(.5)
         self.poll()
 
     def get_homekit_mode(self):

@@ -12,6 +12,7 @@ if __name__ == '__main__':
     hk_ths = []
     for th in ths:
         hk_th = bridge.add_thermostat(th.get_name())
+        hk_th.name = th.get_name()
         hk_ths += [ hk_th ]
 
         def build_update(hk, hm):

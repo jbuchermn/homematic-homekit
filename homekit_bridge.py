@@ -10,12 +10,25 @@ HOMEKIT_HCS_HEATING = 1
 HOMEKIT_HCS_COOLING = 2
 HOMEKIT_HCS_AUTO = 3
 
+def print_homekit_mode(val):
+    if val == HOMEKIT_HCS_OFF:
+        return "OFF"
+    elif val == HOMEKIT_HCS_HEATING:
+        return "HEATING"
+    elif val == HOMEKIT_HCS_COOLING:
+        return "COOLING"
+    elif val == HOMEKIT_HCS_AUTO:
+        return "AUTO"
+    else:
+        return "None"
+
 class Thermostat(Accessory):
     category = CATEGORY_THERMOSTAT
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.name = "Thermostat"
         self._callbacks = []
 
         service = self.add_preload_service('Thermostat')
@@ -48,6 +61,7 @@ class Thermostat(Accessory):
         self._current_hcs.set_value(self.current_hcs)
         self._target_hcs.set_value(self.target_hcs)
         self._temp_units.set_value(0.5)
+        print("[%s] HomeKit state: %s (%s) %f %f" % (self.name, print_homekit_mode(self._target_hcs), print_homekit_mode(self._current_hcs), self._target_temp, self._current_temp))
 
     def on_update(self, callback):
         self._callbacks += [ callback ]
