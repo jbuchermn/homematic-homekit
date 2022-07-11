@@ -61,7 +61,7 @@ class Thermostat(Accessory):
         self._current_hcs.set_value(self.current_hcs)
         self._target_hcs.set_value(self.target_hcs)
         self._temp_units.set_value(0.5)
-        print("[%s] HomeKit state: %s (%s) %f %f" % (self.name, print_homekit_mode(self._target_hcs), print_homekit_mode(self._current_hcs), self._target_temp, self._current_temp))
+        print("[%s] HomeKit state: %s (%s) %f %f" % (self.name, print_homekit_mode(self.target_hcs), print_homekit_mode(self.current_hcs), self.target_temp, self.current_temp))
 
     def on_update(self, callback):
         self._callbacks += [ callback ]
