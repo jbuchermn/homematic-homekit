@@ -14,8 +14,6 @@ if __name__ == '__main__':
         hk_th = bridge.add_thermostat(th.get_name())
         hk_ths += [ hk_th ]
 
-        hk_th.poll_callback = th.poll
-
         def build_update(hk, hm):
             def update():
                 hk.current_temp = hm.get_current_temp()
