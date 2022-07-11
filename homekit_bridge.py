@@ -17,7 +17,6 @@ class Thermostat(Accessory):
         super().__init__(*args, **kwargs)
 
         self._callbacks = []
-        self._damaged = True
 
         service = self.add_preload_service('Thermostat')
         service.setter_callback = self._set_chars
@@ -33,25 +32,17 @@ class Thermostat(Accessory):
         self.target_hcs = 0
         self.current_hcs = 0
 
-    def damage(self):
-        self._damaged = True
-
     def _set_chars(self, char_values):
         if 'TargetTemperature' in char_values:
             self.target_temp = char_values['TargetTemperature']
         if 'TargetHeatingCoolingState' in char_values:
             self.target_hcs = char_values['TargetHeatingCoolingState']
 
-        self.damage()
         for c in self._callbacks:
             c()
 
     @Accessory.run_at_interval(3)
     async def run(self):
-        if not self._damaged:
-            return
-        self._damaged = False
-
         self._current_temp.set_value(self.current_temp)
         self._target_temp.set_value(self.target_temp)
         self._current_hcs.set_value(self.current_hcs)

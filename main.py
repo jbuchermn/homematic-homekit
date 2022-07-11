@@ -11,9 +11,10 @@ if __name__ == '__main__':
     ths = list(find_thermostats(client, server))
     hk_ths = []
     for th in ths:
-        th.poll()
         hk_th = bridge.add_thermostat(th.get_name())
         hk_ths += [ hk_th ]
+
+        hk_th.poll_callback = th.poll
 
         def build_update(hk, hm):
             def update():
@@ -21,7 +22,6 @@ if __name__ == '__main__':
                 hk.target_temp = hm.get_target_temp()
                 hk.target_hcs = hm.get_homekit_mode()
                 hk.set_current_hcs()
-                hk.damage()
             return update
         th.on_update(build_update(hk_th, th))
 
@@ -30,6 +30,9 @@ if __name__ == '__main__':
                 hm.set_from_homekit(hk.target_hcs, hk.target_temp)
             return update
         hk_th.on_update(build_update2(th, hk_th))
+
+        th.poll()
+
     print("Found thermostats: %s" % ths)
 
     print("Starting event server...")

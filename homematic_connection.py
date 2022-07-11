@@ -1,5 +1,6 @@
 from threading import Thread
-import socket   
+import time
+import socket
 import xmlrpc.client
 from xmlrpc.server import SimpleXMLRPCServer
 
@@ -39,15 +40,23 @@ class EventServer(Thread):
     def register(self, address, th):
         self._thermostats[address] = th
 
+    def poll(self):
+        while True:
+            for v in self._thermostats.values():
+                v.poll()
+            time.sleep(15)
+
     def run(self):
         print("Registering server...")
         self._client.init("http://%s:9293" % self._ip, "my-id")
         print("...done")
 
         print("Starting XML-RPC server on http://%s:9293..." % self._ip)
-        server = SimpleXMLRPCServer(('0.0.0.0', 9293))
+        server = SimpleXMLRPCServer(('0.0.0.0', 9293), logRequests=False)
         server.register_introspection_functions()
         server.register_function(self._on_event, "event")
+
+        Thread(target=self.poll).start()
 
         try:
             server.serve_forever()
@@ -81,6 +90,8 @@ class HMThermostat:
 
     def poll(self):
         state = self._client.getParamset(self._address, "VALUES")
+        print("[%s] Poll: %s" % (self._address, state))
+
         self._mode = state['CONTROL_MODE']
         self._target_temp = state['SET_TEMPERATURE']
         self._current_temp = state['ACTUAL_TEMPERATURE']
@@ -94,10 +105,12 @@ class HMThermostat:
         if current_temp is not None:
             self._current_temp = current_temp
 
+        print("[%s] Update: %d %f %f" % (self._address, self._mode, self._target_temp, self._current_temp))
         for c in self._callbacks:
             c()
 
     def set(self, mode, target_temp):
+        print("[%s] Push: %d %f" % (self._address, mode, target_temp))
         self._client.setValue(self._address, "SET_TEMPERATURE", target_temp)
         self._client.setValue(self._address, "CONTROL_MODE", mode)
         self.poll()
@@ -113,7 +126,6 @@ class HMThermostat:
             return HOMEKIT_HCS_COOLING
 
     def set_from_homekit(self, homekit_mode, target_temp):
-        print("SETTING FROM: %d %f" % (homekit_mode, target_temp))
         mode = self._mode
         temp = target_temp
         if self.get_homekit_mode() != homekit_mode:
@@ -132,7 +144,6 @@ class HMThermostat:
                 mode = HOMEMATIC_MODE_BOOST
                 if abs(temp - OFF_VALUE) < 0.1:
                     temp = 22.0
-        print("SETTING: %d %f" % (mode, temp))
         self.set(mode, temp)
 
     def __repr__(self):
