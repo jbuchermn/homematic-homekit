@@ -1,47 +1,40 @@
-import time
 import xmlrpc.client
-from xmlrpc.server import SimpleXMLRPCServer
+from homematic_connection import EventServer, find_thermostats
+from homekit_bridge import ThermoBridge
 
-print("Opening connection...")
-s = xmlrpc.client.ServerProxy('http://192.168.178.29:9292/groups')
-print("...open")
+if __name__ == '__main__':
+    client = xmlrpc.client.ServerProxy('http://192.168.178.29:9292/groups')
+    server = EventServer(client)
 
-# print("Server methods:")
-# print(s.system.listMethods())
-#
-print("List all devices:")
-print(s.listDevices())
+    bridge = ThermoBridge('HomeMatic')
 
-print("Get status:")
-print(s.getParamset("INT0000001:1", "VALUES"))
+    ths = list(find_thermostats(client, server))
+    hk_ths = []
+    for th in ths:
+        th.poll()
+        hk_th = bridge.add_thermostat(th.get_name())
+        hk_ths += [ hk_th ]
 
-time.sleep(1)
+        def build_update(hk, hm):
+            def update():
+                hk.current_temp = hm.get_current_temp()
+                hk.target_temp = hm.get_target_temp()
+                hk.target_hcs = hm.get_homekit_mode()
+                hk.set_current_hcs()
+                hk.damage()
+            return update
+        th.on_update(build_update(hk_th, th))
 
-print("Set:")
-print(s.setValue("INT0000001:1", "CONTROL_MODE", 0))
-print(s.setValue("INT0000001:1", "SET_TEMPERATURE", 4.5))
+        def build_update2(hm, hk):
+            def update():
+                hm.set_from_homekit(hk.target_hcs, hk.target_temp)
+            return update
+        hk_th.on_update(build_update2(th, hk_th))
+    print("Found thermostats: %s" % ths)
 
-time.sleep(1)
+    print("Starting event server...")
+    server.start()
 
-print("Get status:")
-print(s.getParamset("INT0000001:1", "VALUES"))
+    print("Starting HomeKit bridge...")
+    bridge.start()
 
-print("Init...")
-s.init("http://192.168.178.67:9293", "my-id")
-print("...sent")
-
-
-def event(*args, **kwargs):
-    print("EVENT: %s, %s" % (args, kwargs))
-
-print("Starting XML RPC server")
-server = SimpleXMLRPCServer(('0.0.0.0', 9293))
-server.register_introspection_functions()
-server.register_function(event)
-
-try:
-    server.serve_forever()
-finally:
-    print("Deinit...")
-    s.init("http://192.168.178.67:9293", "")
-    print("...sent")
