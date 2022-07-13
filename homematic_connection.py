@@ -38,11 +38,13 @@ def get_ip():
     s.close()
     return res
 
-class EventServer(Thread):
-    def __init__(self, client):
-        super().__init__()
+class EventServer:
+    def __init__(self, client, run_poll_server=True, run_xml_server=False):
         self._client = client
         self._ip = get_ip()
+
+        self._run_poll_server = run_poll_server
+        self._run_xml_server = run_xml_server
 
         self._thermostats = {}
 
@@ -56,13 +58,13 @@ class EventServer(Thread):
     def register(self, address, th):
         self._thermostats[address] = th
 
-    def poll(self):
+    def _run_poll(self):
         while True:
             for v in self._thermostats.values():
                 v.poll()
             time.sleep(15)
 
-    def run(self):
+    def _run_xml(self):
         print("Registering server...")
         self._client.init("http://%s:9293" % self._ip, "my-id")
         print("...done")
@@ -72,14 +74,18 @@ class EventServer(Thread):
         server.register_introspection_functions()
         server.register_function(self._on_event, "event")
 
-        Thread(target=self.poll).start()
-
         try:
             server.serve_forever()
         finally:
             print("Unregistering server...")
             client.init("http://%s:9293" % self._ip, "")
             print("...done")
+
+    def start(self):
+        if self._run_poll_server:
+            Thread(target=self._run_poll).start()
+        if self._run_xml_server:
+            Thread(target=self._run_xml).start()
 
 
 class HMThermostat:
@@ -107,10 +113,10 @@ class HMThermostat:
     def poll(self):
         try:
             state = self._client.getParamset(self._address, "VALUES")
-            print("[%s] Poll: %s" % (self._address, state))
             self._mode = state['CONTROL_MODE']
             self._target_temp = state['SET_TEMPERATURE']
             self._current_temp = state['ACTUAL_TEMPERATURE']
+            print("[%s] <--- Poll" % self._address)
             self.update(None, None, None)
 
         except Exception as e:
@@ -124,13 +130,13 @@ class HMThermostat:
         if current_temp is not None:
             self._current_temp = current_temp
 
-        print("[%s] Update: %s %f %f" % (self._address, print_homematic_mode(self._mode), self._target_temp, self._current_temp))
+        print("[%s] <--- Update: %s %f %f" % (self._address, print_homematic_mode(self._mode), self._target_temp, self._current_temp))
         for c in self._callbacks:
             c()
 
     def set(self, mode, target_temp):
         try:
-            print("[%s] Push: %d %f" % (self._address, print_homematic_mode(mode), target_temp))
+            print("[%s] ---> Push: %s %f" % (self._address, print_homematic_mode(mode), target_temp))
             self._client.setValue(self._address, "SET_TEMPERATURE", target_temp)
             time.sleep(.5)
             self._client.setValue(self._address, "CONTROL_MODE", mode)
@@ -155,7 +161,7 @@ class HMThermostat:
         temp = target_temp
         if self.get_homekit_mode() != homekit_mode:
             if homekit_mode == HOMEKIT_HCS_OFF:
-                mode = HOMEMATIC_MODE_AUTO
+                mode = HOMEMATIC_MODE_MANU
                 temp = OFF_VALUE
             elif homekit_mode == HOMEKIT_HCS_AUTO:
                 mode = HOMEMATIC_MODE_AUTO
@@ -194,6 +200,6 @@ if __name__ == '__main__':
         th.poll()
     print("Found thermostats: %s" % ths)
 
-    server.run()
+    server.start()
 
 
