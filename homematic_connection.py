@@ -142,12 +142,7 @@ class HMThermostat:
 
             elif mode == HOMEMATIC_MODE_MANU:
                 print("[%s] ---> Push: MANU_MODE: %f" % (self._address, target_temp))
-                self._client.setValue(self._address, "MANU_MODE", target_temp)
-
-                time.sleep(2)
-
-                print("[%s] ---> Push: MANU_MODE: %f" % (self._address, target_temp))
-                self._client.setValue(self._address, "MANU_MODE", target_temp)
+                self._client.setValue(self._address, "MANU_MODE", float(target_temp))
 
             elif mode == HOMEMATIC_MODE_BOOST:
                 print("[%s] ---> Push: BOOST_MODE" % self._address)
