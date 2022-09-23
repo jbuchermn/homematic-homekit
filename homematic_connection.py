@@ -136,10 +136,23 @@ class HMThermostat:
 
     def set(self, mode, target_temp):
         try:
-            print("[%s] ---> Push: %s %f" % (self._address, print_homematic_mode(mode), target_temp))
-            self._client.setValue(self._address, "SET_TEMPERATURE", target_temp)
-            time.sleep(.5)
-            self._client.setValue(self._address, "CONTROL_MODE", mode)
+            if mode == HOMEMATIC_MODE_AUTO:
+                print("[%s] ---> Push: AUTO_MODE" % self._address)
+                self._client.setValue(self._address, "AUTO_MODE", True)
+
+            elif mode == HOMEMATIC_MODE_MANU:
+                print("[%s] ---> Push: MANU_MODE: %f" % (self._address, target_temp))
+                self._client.setValue(self._address, "MANU_MODE", target_temp)
+
+                time.sleep(2)
+
+                print("[%s] ---> Push: MANU_MODE: %f" % (self._address, target_temp))
+                self._client.setValue(self._address, "MANU_MODE", target_temp)
+
+            elif mode == HOMEMATIC_MODE_BOOST:
+                print("[%s] ---> Push: BOOST_MODE" % self._address)
+                self._client.setValue(self._address, "BOOST_MODE", True)
+
         except Exception as e:
             print(e)
 
@@ -148,8 +161,10 @@ class HMThermostat:
 
     def get_homekit_mode(self):
         if abs(self._target_temp - OFF_VALUE) < 0.1:
-            return HOMEKIT_HCS_OFF
-        elif self._mode == HOMEMATIC_MODE_AUTO:
+            if self._mode == HOMEMATIC_MODE_MANU:
+                return HOMEKIT_HCS_OFF
+        
+        if self._mode == HOMEMATIC_MODE_AUTO:
             return HOMEKIT_HCS_AUTO
         elif self._mode == HOMEMATIC_MODE_MANU:
             return HOMEKIT_HCS_HEATING
@@ -166,15 +181,15 @@ class HMThermostat:
             elif homekit_mode == HOMEKIT_HCS_AUTO:
                 mode = HOMEMATIC_MODE_AUTO
                 if abs(temp - OFF_VALUE) < 0.1:
-                    temp = 22.0
+                    temp = 17.0
             elif homekit_mode == HOMEKIT_HCS_HEATING:
                 mode = HOMEMATIC_MODE_MANU
                 if abs(temp - OFF_VALUE) < 0.1:
-                    temp = 22.0
+                    temp = 17.0
             elif homekit_mode == HOMEKIT_HCS_COOLING:
                 mode = HOMEMATIC_MODE_BOOST
                 if abs(temp - OFF_VALUE) < 0.1:
-                    temp = 22.0
+                    temp = 17.0
         self.set(mode, temp)
 
     def __repr__(self):
@@ -198,8 +213,9 @@ if __name__ == '__main__':
     ths = list(find_thermostats(client, server))
     for th in ths:
         th.poll()
+        th.set(HOMEMATIC_MODE_MANU, OFF_VALUE)
     print("Found thermostats: %s" % ths)
 
-    server.start()
+    # server.start()
 
 
